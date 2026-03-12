@@ -15,25 +15,22 @@ const API_KEY = process.env.FIRECRAWL_API_KEY;
 const SCRAPED_URLS = new Set<string>();
 const SAVED_HASHES = new Set<string>();
 
-// SURGICAL KEYWORDS: Focus on the "Process" and "Fees", not the 20,000 products.
 const TARGET_KEYWORDS = [
-    "product-certification", // Allows it to find the branch
-    "isi-mark", 
-    "grant-of-license", 
-    "marking-fee", 
-    "surveillance", 
-    "process",
-    "fee",
-    "guidelines"
+    "consumer-overview", 
+    "hallmarking", 
+    "public-grievance", 
+    "consumer-engagement", 
+    "know-your-standards",
+    "care-manual"
 ];
 
-async function scrapeISI(url: string, depth = 0) {
+async function scrapeConsumer(url: string, depth = 0) {
     const MAX_DEPTH = 3;
     if (SCRAPED_URLS.has(url) || depth > MAX_DEPTH) return;
     SCRAPED_URLS.add(url);
 
     const indent = "  ".repeat(depth);
-    console.log(`${indent}🏗️  ISI Mark: ${url}`);
+    console.log(`${indent}🛍️  Consumer: ${url}`);
 
     try {
         const response = await fetch("https://api.firecrawl.dev/v1/scrape", {
@@ -56,7 +53,7 @@ async function scrapeISI(url: string, depth = 0) {
         if (result.success && result.data?.markdown) {
             const rawMd = result.data.markdown;
             
-            // ✅ LINK PRESERVATION: Keeping the "Fee Schedule" and "Process Flow" PDFs
+            // ✅ LINK PRESERVATION: Keeping those complaint form PDFs and manuals!
             const cleanMd = rawMd.split("हम बीआईएस हैं")[0];
             
             const contentHash = crypto.createHash('md5').update(cleanMd).digest('hex');
@@ -66,9 +63,9 @@ async function scrapeISI(url: string, depth = 0) {
                 const outputDir = path.resolve(process.cwd(), 'bis_data');
                 if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir);
 
-                const fileName = new URL(url).pathname.split('/').filter(p => p).join('-') || 'isi-root';
-                fs.writeFileSync(path.join(outputDir, `ISI-${fileName}.md`), cleanMd);
-                console.log(`${indent}💾 Saved: ISI-${fileName}.md`);
+                const fileName = new URL(url).pathname.split('/').filter(p => p).join('-') || 'con-root';
+                fs.writeFileSync(path.join(outputDir, `CON-${fileName}.md`), cleanMd);
+                console.log(`${indent}💾 Saved: CON-${fileName}.md`);
             }
 
             const links = rawMd.match(/(https?:\/\/[^\s\)\"\]]+|(?<=\()\/[^\s\)\"\]]+)/g) || [];
@@ -80,7 +77,7 @@ async function scrapeISI(url: string, depth = 0) {
                 const isHindi = link.includes('?lang=hi') || link.includes('/hi/');
 
                 if (isRelevant && !isHindi && !link.endsWith('.pdf') && !SCRAPED_URLS.has(link)) {
-                    await scrapeISI(link, depth + 1);
+                    await scrapeConsumer(link, depth + 1);
                 }
             }
         }
@@ -89,5 +86,8 @@ async function scrapeISI(url: string, depth = 0) {
     }
 }
 
-console.log("🚀 Starting ISI Mark (Scheme-I) Surgical Scrape...");
-scrapeISI("https://www.bis.gov.in/product-certification/product-certification-schemes/scheme-i-isi-mark-scheme/?lang=en");
+console.log("🚀 Starting Consumer Affairs Surgical Scrape...");
+scrapeConsumer("https://www.bis.gov.in/consumer-overview/consumer-overviews/portal-for-public-grievances/?lang=en");
+catch (e: unknown) {
+        console.error(`${indent}🛑 Error: ${(e as Error).message}`);
+    }
