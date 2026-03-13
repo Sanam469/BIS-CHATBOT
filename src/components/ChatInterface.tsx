@@ -100,16 +100,20 @@ export default function ChatInterface() {
         }
     }, [messages]);
 
-    // glass classes
+    // Strip trailing "Sources:" block from bot text (frontend Reference pills handle it)
+    const stripSources = (text: string) =>
+        text.replace(/\n*📋\s*\*{0,2}Sources:?\*{0,2}[\s\S]*$/i, '').trim();
+
+    // glass classes — pure black/grey for dark mode
     const glass = isDark
-        ? 'bg-white/[0.04] border border-white/[0.08] backdrop-blur-xl'
+        ? 'bg-[#ffffff06] border border-[#ffffff10] backdrop-blur-xl'
         : 'bg-white/40 border border-white/50 backdrop-blur-xl';
     const glassStrong = isDark
-        ? 'bg-white/[0.06] border border-white/[0.12] backdrop-blur-2xl'
+        ? 'bg-[#ffffff0a] border border-[#ffffff14] backdrop-blur-2xl'
         : 'bg-white/60 border border-white/60 backdrop-blur-2xl';
-    const textPrimary = isDark ? 'text-[#e8e6f0]' : 'text-[#1a1a2e]';
-    const textSoft = isDark ? 'text-[#9694a8]' : 'text-[#6b6b88]';
-    const textMuted = isDark ? 'text-[#5c5a70]' : 'text-[#9b9bb0]';
+    const textPrimary = isDark ? 'text-[#e5e5e5]' : 'text-[#1a1a2e]';
+    const textSoft = isDark ? 'text-[#a0a0a0]' : 'text-[#6b6b88]';
+    const textMuted = isDark ? 'text-[#666666]' : 'text-[#9b9bb0]';
 
     return (
         <div className={`relative flex h-screen w-full overflow-hidden ${textPrimary} transition-colors duration-500`}
@@ -117,7 +121,7 @@ export default function ChatInterface() {
 
             {/* ── AURORA BG ── */}
             <div className="absolute inset-0 z-0">
-                <div className={`absolute inset-0 ${isDark ? 'bg-[#06060e]' : 'bg-[#eef0f8]'}`} />
+                <div className={`absolute inset-0 ${isDark ? 'bg-[#000000]' : 'bg-[#eef0f8]'}`} />
                 {/* Top aurora blobs — BIS blue/violet theme */}
                 <div className="absolute -top-32 left-1/4 w-[600px] h-[600px] rounded-full opacity-30"
                     style={{ background: 'radial-gradient(circle, rgba(124,58,237,0.4) 0%, transparent 70%)' }} />
@@ -127,19 +131,19 @@ export default function ChatInterface() {
                     style={{ background: 'radial-gradient(ellipse, rgba(139,92,246,0.3) 0%, transparent 70%)' }} />
                 {/* Bottom subtle glow */}
                 <div className="absolute bottom-0 left-0 right-0 h-64 opacity-10"
-                    style={{ background: 'linear-gradient(to top, rgba(124,58,237,0.2), transparent)' }} />
+                    style={{ background: 'linear-gradient(to top, rgba(134, 96, 124, 0.2), transparent)' }} />
             </div>
 
             {/* ── SIDEBAR ── */}
             <aside className={`relative z-10 w-[240px] flex-col p-3 hidden lg:flex ${glass} border-r border-white/[0.06] rounded-none`}>
                 <button onClick={() => setMessages([])}
-                    className={`flex items-center gap-2 ${glassStrong} py-2 px-3.5 rounded-xl text-[12px] font-medium mb-4 transition-all hover:bg-white/[0.08]`}>
+                    className={`flex items-center gap-2 ${glassStrong} py-2 px-3.5 rounded-xl text-[13px] font-medium mb-4 transition-all hover:bg-white/[0.08]`}>
                     <Plus size={14} className="text-violet-400" /> New chat
                 </button>
 
                 <div className="flex-1 overflow-y-auto space-y-1">
                     {messages.length > 0 && (
-                        <div className={`flex items-center gap-2 px-3 py-2 rounded-xl text-[11px] ${glass} ${textSoft}`}>
+                        <div className={`flex items-center gap-2 px-3 py-2 rounded-xl text-[13px] ${glass} ${textSoft}`}>
                             <span className="truncate">{messages[0]?.content.substring(0, 32)}...</span>
                         </div>
                     )}
@@ -150,14 +154,14 @@ export default function ChatInterface() {
                     <div className="flex items-center gap-2">
                         <FlowerIcon size={22} />
                         <div>
-                            <p className="text-[11px] font-semibold tracking-tight">BIS Intel-Bot</p>
-                            <p className={`text-[9px] ${textMuted}`}>Gemini 2.5 Flash</p>
+                            <p className="text-[12px] font-semibold tracking-tight">BIS Intel-Bot</p>
+                            <p className={`text-[10px] ${textMuted}`}>Gemini 2.5 Flash</p>
                         </div>
                     </div>
                 </div>
 
                 <button onClick={() => setIsDark(!isDark)}
-                    className={`flex items-center justify-center gap-1.5 py-2 rounded-xl ${glass} transition-all text-[11px] ${textSoft} hover:bg-white/[0.08]`}>
+                    className={`flex items-center justify-center gap-1.5 py-2 rounded-xl ${glass} transition-all text-[13px] ${textSoft} hover:bg-white/[0.08]`}>
                     {isDark ? <Sun size={13} className="text-amber-400" /> : <Moon size={13} className="text-violet-400" />}
                     {isDark ? 'Light' : 'Dark'}
                 </button>
@@ -165,7 +169,7 @@ export default function ChatInterface() {
 
             {/* ── MAIN ── */}
             <main className="relative z-10 flex-1 flex flex-col h-full overflow-hidden">
-                <div className="flex-1 overflow-y-auto px-4 md:px-10 lg:px-16 xl:px-28 py-6">
+                <div className="flex-1 overflow-y-auto pl-4 pr-4 md:pl-6 md:pr-10 lg:pl-8 lg:pr-16 xl:pl-12 xl:pr-28 py-6">
 
                     {/* ── EMPTY STATE ── */}
                     {messages.length === 0 ? (
@@ -180,15 +184,15 @@ export default function ChatInterface() {
                             <h1 className="text-2xl font-semibold tracking-tight mb-1.5 bg-gradient-to-r from-violet-300 to-indigo-300 bg-clip-text text-transparent">
                                 BIS Intel-Bot
                             </h1>
-                            <p className={`${textSoft} text-[12px] max-w-xs leading-relaxed mb-7`}>
+                            <p className={`${textSoft} text-[13px] max-w-xs leading-relaxed mb-7`}>
                                 AI assistant for the Bureau of Indian Standards
                             </p>
                             <div className="grid grid-cols-2 gap-2 max-w-md w-full">
                                 {suggestions.map((q, i) => (
                                     <button key={i} onClick={() => handleSend(q.text)}
-                                        className={`text-left p-3 rounded-xl ${glass} hover:bg-white/[0.08] transition-all text-[12px] ${textSoft} group`}>
-                                        <span className="text-sm mb-0.5 block">{q.icon}</span>
-                                        <span className="opacity-70 group-hover:opacity-100 transition-opacity text-[11px] leading-snug">{q.text}</span>
+                                        className={`text-left p-3 rounded-xl ${glass} hover:bg-white/[0.08] transition-all text-[13px] ${textSoft} group`}>
+                                        <span className="text-base mb-0.5 block">{q.icon}</span>
+                                        <span className="opacity-70 group-hover:opacity-100 transition-opacity text-[13px] leading-snug">{q.text}</span>
                                     </button>
                                 ))}
                             </div>
@@ -207,7 +211,7 @@ export default function ChatInterface() {
                                             {/* Glass pointer triangle */}
                                             <div className="absolute -right-1.5 top-3 w-3 h-3 rotate-45"
                                                 style={{
-                                                    background: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.6)',
+                                                    background: isDark ? 'rgba(148, 106, 106, 0.06)' : 'rgba(255,255,255,0.6)',
                                                     borderRight: isDark ? '1px solid rgba(255,255,255,0.12)' : '1px solid rgba(255,255,255,0.6)',
                                                     borderBottom: isDark ? '1px solid rgba(255,255,255,0.12)' : '1px solid rgba(255,255,255,0.6)',
                                                 }} />
@@ -267,17 +271,17 @@ export default function ChatInterface() {
                                                                     </div>
                                                                 ),
                                                             }}
-                                                        >{m.content}</ReactMarkdown>
+                                                        >{stripSources(m.content)}</ReactMarkdown>
                                                     </div>
 
                                                     {/* Sources */}
                                                     {m.sources && m.sources.length > 0 && (
                                                         <div className="mt-3 pt-2 border-t border-white/[0.06]">
-                                                            <p className={`text-[9px] uppercase tracking-[0.15em] ${textMuted} mb-1.5 font-medium`}>References</p>
-                                                            <div className="flex flex-wrap gap-1">
+                                                            <p className={`text-[10px] uppercase tracking-[0.15em] ${textMuted} mb-1.5 font-medium`}>References</p>
+                                                            <div className="flex flex-wrap gap-1.5">
                                                                 {m.sources.slice(0, 5).map((s, j) => (
                                                                     <a key={j} href={s.url} target="_blank" rel="noopener noreferrer"
-                                                                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] ${glass} ${textSoft} hover:bg-white/[0.08] transition-all`}>
+                                                                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[12px] ${glass} ${textSoft} hover:bg-white/[0.08] transition-all`}>
                                                                         <ExternalLink size={8} className="text-violet-400 opacity-60" />
                                                                         <span className="truncate max-w-[150px]">{s.title || 'BIS Source'}</span>
                                                                     </a>
@@ -345,8 +349,8 @@ export default function ChatInterface() {
                             />
                             <button onClick={() => handleSend()} disabled={!input.trim() || isLoading}
                                 className={`p-1.5 rounded-lg transition-all ${input.trim() && !isLoading
-                                        ? 'bg-violet-600 text-white shadow-md shadow-violet-500/20 hover:bg-violet-500 hover:scale-105'
-                                        : `bg-white/[0.04] ${textMuted} cursor-not-allowed`
+                                    ? 'bg-violet-600 text-white shadow-md shadow-violet-500/20 hover:bg-violet-500 hover:scale-105'
+                                    : `bg-white/[0.04] ${textMuted} cursor-not-allowed`
                                     }`}>
                                 <Send size={14} />
                             </button>
