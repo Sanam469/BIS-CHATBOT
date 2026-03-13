@@ -1,0 +1,55 @@
+@import "tailwindcss";
+
+:root {
+  --background: #000000;
+  --foreground: #e8e6f0;
+  --font-inter: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-inter);
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --background: #eef0f8;
+    --foreground: #1a1a2e;
+  }
+}
+
+* {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-inter);
+  font-weight: 400;
+  letter-spacing: -0.01em;
+}
+
+/* Thin scrollbar */
+::-webkit-scrollbar {
+  width: 4px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(139, 92, 246, 0.12);
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(139, 92, 246, 0.25);
+}
+
+/* Prose refinements */
+.prose h2 { letter-spacing: -0.02em; }
+.prose h3 { letter-spacing: -0.01em; }
+.prose p { font-weight: 400; }
+.prose strong { font-weight: 600; }
+.prose li::marker { color: rgba(167, 139, 250, 0.5); }
