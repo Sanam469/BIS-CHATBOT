@@ -1,6 +1,5 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { withGeminiRetry } from '@/src/lib/gemini';
 import { pinecone, indexName } from '@/src/lib/pinecone';
-import { embeddingModel } from '@/src/lib/gemini';
 import { TaskType } from "@google/generative-ai";
 
 interface Message {
@@ -14,8 +13,6 @@ interface SourceDoc {
     text: string;
     score: number;
 }
-
-const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GENERATIVE_AI_API_KEY!);
 
 // ── Retrieval: Multi-query + conversation-aware ─────────────────────────
 async function retrieveContext(
@@ -32,7 +29,7 @@ async function retrieveContext(
     const subQueries = userQuery
         .split(/[?.\n]| vs | and /i)
         .map(q => q.trim())
-        .filter(q => q.length > 5); // reduced threshold to catch short scheme names like "ISI"
+        .filter(q => q.length > 5); 
 
     // If no good splits, use the whole thing
     const queriesToSearch = subQueries.length > 1 ? subQueries : [userQuery];
@@ -43,10 +40,12 @@ async function retrieveContext(
             ? `Current Question: ${q} | Context: ${previousMessage}`
             : q;
 
-        const embResult = await embeddingModel.embedContent({
-            content: { role: 'user', parts: [{ text: contextualQuery.substring(0, 8000) }] },
-            taskType: TaskType.RETRIEVAL_QUERY,
-        });
+        const embResult = await withGeminiRetry((genAI) => 
+            genAI.getGenerativeModel({ model: "gemini-embedding-001" }).embedContent({
+                content: { role: 'user', parts: [{ text: contextualQuery.substring(0, 8000) }] },
+                taskType: TaskType.RETRIEVAL_QUERY,
+            })
+        );
 
         return index.query({
             vector: embResult.embedding.values,
@@ -171,15 +170,12 @@ export async function POST(req: Request) {
         const sourceDocs = await retrieveContext(lastMessage, previousMessages);
         const formattedContext = formatContextForLLM(sourceDocs);
 
-        // 2. Build the model
-        const model = genAI.getGenerativeModel({
-            model: "gemini-2.5-flash",
-            generationConfig: {
-                temperature: 0.3,     // lower = more factual, less creative
-                topP: 0.8,
-                maxOutputTokens: 4096,
-            }
-        });
+        // 2. Build the model with retry logic
+        const generationConfig = {
+            temperature: 0.3,
+            topP: 0.8,
+            maxOutputTokens: 4096,
+        };
 
         // 3. Construct the full prompt with system + context + history
         const fullSystemPrompt = `${SYSTEM_PROMPT}\n\n## BIS CONTEXT SOURCES (Use ONLY this data to answer):\n\n${formattedContext}`;
@@ -198,7 +194,10 @@ export async function POST(req: Request) {
             { role: 'user' as const, parts: [{ text: lastMessage }] }
         ];
 
-        const result = await model.generateContentStream({ contents });
+        const result = await withGeminiRetry((genAI) => 
+            genAI.getGenerativeModel({ model: "gemini-2.5-flash", generationConfig })
+                 .generateContentStream({ contents })
+        );
 
         const stream = new ReadableStream({
             async start(controller) {

@@ -1,7 +1,7 @@
 'use client';
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { Send, RotateCcw, Copy, Check, ThumbsUp, ExternalLink, Plus, Moon, Sun, LogOut } from 'lucide-react';
+import { Send, RotateCcw, Copy, Check, ThumbsUp, ThumbsDown, ExternalLink, Plus, Moon, Sun, LogOut, Scan } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
@@ -36,6 +36,9 @@ export default function ChatInterface() {
     const [copiedIdx, setCopiedIdx] = useState<number | null>(null);
     const [userEmail, setUserEmail] = useState<string | null>(null);
     const scrollRef = useRef<HTMLDivElement>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+    const [messageFeedback, setMessageFeedback] = useState<Record<number, 'up' | 'down' | null>>({});
+    const [translatedMessages, setTranslatedMessages] = useState<Record<number, boolean>>({});
 
     useEffect(() => {
         const token = localStorage.getItem('token');
@@ -116,6 +119,31 @@ export default function ChatInterface() {
     }
 };
 
+    const handleScannerClick = () => {
+        fileInputRef.current?.click();
+    };
+
+    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        setIsLoading(true);
+        // Mock "Scanning" state
+        setMessages(prev => [...prev, { role: 'assistant', content: '🔍 Scanning product for ISI mark...' }]);
+        
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        
+        setMessages(prev => {
+            const updated = [...prev];
+            updated[updated.length - 1].content = '✅ **ISI certified!** This product complies with the relevant Indian Standards.';
+            return updated;
+        });
+        setIsLoading(false);
+        
+        // Reset input
+        if (fileInputRef.current) fileInputRef.current.value = '';
+    };
+
     const handleCopy = useCallback((text: string, idx: number) => {
         navigator.clipboard.writeText(text);
         setCopiedIdx(idx);
@@ -124,6 +152,22 @@ export default function ChatInterface() {
 
     const stripSources = (text: string) =>
         text.replace(/\n*📋\s*\*{0,2}Sources:?\*{0,2}[\s\S]*$/i, '').trim();
+
+    const mockHindiTranslate = (text: string) => {
+        // Simple mock translation for demo purposes
+        return "नमस्ते! यह आपकी पूछताछ का हिंदी अनुवाद है। " + text.split(' ').slice(0, 10).join(' ') + "... [Mock Hindi Version]";
+    };
+
+    const toggleTranslation = (idx: number) => {
+        setTranslatedMessages(prev => ({ ...prev, [idx]: !prev[idx] }));
+    };
+
+    const handleFeedback = (idx: number, type: 'up' | 'down') => {
+        setMessageFeedback(prev => ({
+            ...prev,
+            [idx]: prev[idx] === type ? null : type
+        }));
+    };
 
     /* ── STYLING LOGIC ── */
     const glass = isDark
@@ -199,6 +243,13 @@ export default function ChatInterface() {
 
             {/* ── MAIN CHAT AREA ── */}
             <main className="relative z-10 flex-1 flex flex-col h-full overflow-hidden">
+                {/* ── TOP RIGHT LOGO ── */}
+                <div className="absolute top-6 right-6 z-20 flex items-center gap-1 font-bold text-2xl tracking-widest opacity-80 pointer-events-none">
+                    <span style={{ color: '#e63946' }}>B</span>
+                    <span style={{ color: '#f4a261' }}>I</span>
+                    <span style={{ color: '#264653' }}>S</span>
+                </div>
+
                 <div className="flex-1 overflow-y-auto px-4 md:px-12 lg:px-24 xl:px-48 py-8">
 
                     {messages.length === 0 ? (
@@ -262,7 +313,9 @@ export default function ChatInterface() {
         li: ({node, ...props}) => <li {...props} className="pl-1" />
     }}
 >
-    {m.role === 'assistant' ? stripSources(m.content) : m.content}
+    {translatedMessages[i] 
+        ? mockHindiTranslate(m.role === 'assistant' ? stripSources(m.content) : m.content)
+        : (m.role === 'assistant' ? stripSources(m.content) : m.content)}
 </ReactMarkdown>
                                         </div>
 
@@ -283,14 +336,28 @@ export default function ChatInterface() {
                                     </div>
 
                                     {/* Action Buttons */}
-                                    {m.role === 'assistant' && (
-                                        <div className="flex gap-2 mt-2 ml-2">
-                                            <button onClick={() => handleCopy(m.content, i)} className={`${textMuted} hover:text-white transition-colors`}>
-                                                {copiedIdx === i ? <Check size={14} /> : <Copy size={14} />}
-                                            </button>
-                                            <button className={`${textMuted} hover:text-white`}><ThumbsUp size={14} /></button>
-                                        </div>
-                                    )}
+                                    <div className={`flex gap-3 mt-2 ${m.role === 'user' ? 'mr-2' : 'ml-2'}`}>
+                                        <button onClick={() => toggleTranslation(i)} title="Translate to Hindi"
+                                            className={`${translatedMessages[i] ? 'text-blue-500' : textMuted} hover:text-white transition-colors font-bold text-xs`}>
+                                            अ
+                                        </button>
+                                        <button onClick={() => handleCopy(m.content, i)} title="Copy message"
+                                            className={`${copiedIdx === i ? 'text-green-500' : textMuted} hover:text-white transition-colors`}>
+                                            {copiedIdx === i ? <Check size={14} /> : <Copy size={14} />}
+                                        </button>
+                                        {m.role === 'assistant' && (
+                                            <>
+                                                <button onClick={() => handleFeedback(i, 'up')} title="Helpful"
+                                                    className={`${messageFeedback[i] === 'up' ? 'text-green-500' : textMuted} hover:text-white transition-colors`}>
+                                                    <ThumbsUp size={14} fill={messageFeedback[i] === 'up' ? 'currentColor' : 'none'} />
+                                                </button>
+                                                <button onClick={() => handleFeedback(i, 'down')} title="Not helpful"
+                                                    className={`${messageFeedback[i] === 'down' ? 'text-red-500' : textMuted} hover:text-white transition-colors`}>
+                                                    <ThumbsDown size={14} fill={messageFeedback[i] === 'down' ? 'currentColor' : 'none'} />
+                                                </button>
+                                            </>
+                                        )}
+                                    </div>
                                 </div>
                             ))}
                             {isLoading && (
@@ -308,6 +375,24 @@ export default function ChatInterface() {
                 {/* ── INPUT BOX ── */}
                 <div className="p-6 md:px-12 lg:px-24 xl:px-48">
                     <div className={`max-w-3xl mx-auto flex items-center gap-3 px-4 py-2 rounded-2xl ${glassStrong}`}>
+                        <div className="relative group">
+                            <input 
+                                type="file" 
+                                ref={fileInputRef} 
+                                onChange={handleFileChange} 
+                                accept="image/*" 
+                                className="hidden" 
+                            />
+                            <button 
+                                onClick={handleScannerClick}
+                                className={`p-2 rounded-xl transition-all ${textMuted} hover:bg-white/10`}
+                            >
+                                <Scan size={18} />
+                            </button>
+                            <div className="absolute bottom-full left-0 mb-3 w-max px-4 py-2 rounded-xl bg-gradient-to-r from-neutral-900 to-black text-white text-[11px] font-bold tracking-wider opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none border border-white/10 shadow-2xl z-50 transform translate-y-2 group-hover:translate-y-0">
+                                SCAN FOR CERTIFICATION TEST
+                            </div>
+                        </div>
                         <input
                             className={`flex-1 bg-transparent border-none py-3 outline-none text-[14px] ${textPrimary} placeholder:opacity-40`}
                             placeholder="Message BIS Intel-Bot..."
