@@ -29,7 +29,7 @@ async function retrieveContext(
     const subQueries = userQuery
         .split(/[?.\n]| vs | and /i)
         .map(q => q.trim())
-        .filter(q => q.length > 5); 
+        .filter(q => q.length > 5);
 
     // If no good splits, use the whole thing
     const queriesToSearch = subQueries.length > 1 ? subQueries : [userQuery];
@@ -40,7 +40,7 @@ async function retrieveContext(
             ? `Current Question: ${q} | Context: ${previousMessage}`
             : q;
 
-        const embResult = await withGeminiRetry((genAI) => 
+        const embResult = await withGeminiRetry((genAI) =>
             genAI.getGenerativeModel({ model: "gemini-embedding-001" }).embedContent({
                 content: { role: 'user', parts: [{ text: contextualQuery.substring(0, 8000) }] },
                 taskType: TaskType.RETRIEVAL_QUERY,
@@ -103,7 +103,7 @@ function formatContextForLLM(docs: SourceDoc[]): string {
 const SYSTEM_PROMPT = `You are **BIS Intel-Bot**, the official AI assistant for the Bureau of Indian Standards (BIS) website. Built on Gemini 2.5 Flash. Your knowledge comes EXCLUSIVELY from the BIS website context provided below.
 
 ## ABSOLUTE RULES:
-1. **INTRO PARAGRAPH REQUIREMENT** — Your opening response MUST be a comprehensive introduction of at least 3 lines. DO NOT provide shorter intros. Be welcoming but professional.
+1. **INTRO PARAGRAPH REQUIREMENT** — Your opening response MUST be a comprehensive introduction of at least 4 lines. DO NOT provide shorter intros. Be welcoming but professional.
 2. **MULTI-QUESTION & COMPARATIVE HANDLING** — If multiple questions are asked, or a comparison is requested (e.g., "Scheme A vs Scheme B"), answer each concisely and confidently. For comparisons, create a **Markdown Table** comparing key features (fees, eligibility, timeline).
 3. **GROUNDING & ANTI-HALLUCINATION** — Every fact (IS numbers, fees, percentages, dates) MUST be pulled directly from the context. If you find multiple conflicting values, mention both with their context. If a value is missing, state: "Specific information on [topic] is not available in the current BIS records."
 4. **REGULATORY TIMELINES** — If asked about timelines (e.g., "Desktop Audit", "Citizen Charter", "7-day rule"), search the context thoroughly. If found, quote it exactly. If not found, say you cannot confirm the specific timeline and point to the official portal.
@@ -194,20 +194,32 @@ export async function POST(req: Request) {
             { role: 'user' as const, parts: [{ text: lastMessage }] }
         ];
 
-        const result = await withGeminiRetry((genAI) => 
+        const result = await withGeminiRetry((genAI) =>
             genAI.getGenerativeModel({ model: "gemini-2.5-flash", generationConfig })
-                 .generateContentStream({ contents })
+                .generateContentStream({ contents })
         );
 
         const stream = new ReadableStream({
             async start(controller) {
                 try {
+                    let totalUsage = null;
                     for await (const chunk of result.stream) {
                         const chunkText = chunk.text();
                         if (chunkText) {
                             controller.enqueue(new TextEncoder().encode(chunkText));
                         }
+                        if (chunk.usageMetadata) {
+                            totalUsage = chunk.usageMetadata;
+                        }
                     }
+
+                    if (totalUsage) {
+                        console.log(`\n📊 [CHAT] Token Usage:`);
+                        console.log(`    Input:  ${totalUsage.promptTokenCount}`);
+                        console.log(`    Output: ${totalUsage.candidatesTokenCount}`);
+                        console.log(`    Total:  ${totalUsage.totalTokenCount}\n`);
+                    }
+
                     controller.close();
                 } catch (e) {
                     controller.error(e);

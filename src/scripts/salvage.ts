@@ -1,6 +1,6 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { pinecone, indexName } from '@/src/lib/pinecone';
-import { embeddingModel } from '@/src/lib/gemini';
+import { getEmbeddingModel } from '@/src/lib/gemini';
 import { TaskType } from "@google/generative-ai";
 
 // Retry helper for Gemini API rate limits
@@ -89,7 +89,7 @@ async function retrieveContext(
     const rewrittenQuery = await rewriteQuery(userQuery, conversationHistory);
 
     // Step 2: Generate embedding for the rewritten query
-    const embResult = await withRetry(() => embeddingModel.embedContent({
+    const embResult = await withRetry(() => getEmbeddingModel().embedContent({
         content: { role: 'user', parts: [{ text: rewrittenQuery.substring(0, 8000) }] },
         taskType: TaskType.RETRIEVAL_QUERY,
     }));
@@ -106,7 +106,7 @@ async function retrieveContext(
     let secondaryMatches: typeof queryResponse.matches = [];
     if (conversationHistory.length === 0 && userQuery.length > 20) {
         try {
-            const origEmb = await withRetry(() => embeddingModel.embedContent({
+            const origEmb = await withRetry(() => getEmbeddingModel().embedContent({
                 content: { role: 'user', parts: [{ text: userQuery.substring(0, 8000) }] },
                 taskType: TaskType.RETRIEVAL_QUERY,
             }));

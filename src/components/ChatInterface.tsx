@@ -1,7 +1,7 @@
 'use client';
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { Send, RotateCcw, Copy, Check, ThumbsUp, ThumbsDown, ExternalLink, Plus, Moon, Sun, LogOut, Scan } from 'lucide-react';
+import { Send, RotateCcw, Copy, Check, ThumbsUp, ThumbsDown, ExternalLink, Plus, Moon, Sun, LogOut, Scan, X } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
@@ -38,7 +38,8 @@ export default function ChatInterface() {
     const scrollRef = useRef<HTMLDivElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [messageFeedback, setMessageFeedback] = useState<Record<number, 'up' | 'down' | null>>({});
-    const [translatedMessages, setTranslatedMessages] = useState<Record<number, boolean>>({});
+    const [translatedCache, setTranslatedCache] = useState<Record<number, string>>({});
+    const [showTranslation, setShowTranslation] = useState<Record<number, boolean>>({});
 
     useEffect(() => {
         const token = localStorage.getItem('token');
@@ -153,13 +154,30 @@ export default function ChatInterface() {
     const stripSources = (text: string) =>
         text.replace(/\n*📋\s*\*{0,2}Sources:?\*{0,2}[\s\S]*$/i, '').trim();
 
-    const mockHindiTranslate = (text: string) => {
-        // Simple mock translation for demo purposes
-        return "नमस्ते! यह आपकी पूछताछ का हिंदी अनुवाद है। " + text.split(' ').slice(0, 10).join(' ') + "... [Mock Hindi Version]";
-    };
+    const toggleTranslation = async (idx: number, rawContent: string) => {
+        const isCurrentlyShown = !!showTranslation[idx];
+        setShowTranslation(prev => ({ ...prev, [idx]: !isCurrentlyShown }));
+        
+        if (!isCurrentlyShown && !translatedCache[idx]) {
+            const contentToTranslate = stripSources(rawContent);
+            setTranslatedCache(prev => ({ ...prev, [idx]: "अनुवाद हो रहा है... (Translating...)" }));
 
-    const toggleTranslation = (idx: number) => {
-        setTranslatedMessages(prev => ({ ...prev, [idx]: !prev[idx] }));
+            try {
+                const res = await fetch('/api/translate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ text: contentToTranslate })
+                });
+                const data = await res.json();
+                if (data.translation) {
+                    setTranslatedCache(prev => ({ ...prev, [idx]: data.translation }));
+                } else {
+                    setTranslatedCache(prev => ({ ...prev, [idx]: "⚠️ अनुवाद विफल (Translation failed)" }));
+                }
+            } catch (e) {
+                setTranslatedCache(prev => ({ ...prev, [idx]: "⚠️ अनुवाद विफल (Translation failed)" }));
+            }
+        }
     };
 
     const handleFeedback = (idx: number, type: 'up' | 'down') => {
@@ -167,6 +185,24 @@ export default function ChatInterface() {
             ...prev,
             [idx]: prev[idx] === type ? null : type
         }));
+    };
+
+    const handleDeleteHistory = (e: React.MouseEvent, idx: number) => {
+        e.stopPropagation();
+        setMessages(prev => {
+            // Find the targeted user message
+            const newMessages = [...prev];
+            // Remove the user message and the following assistant message (if it exists)
+            // Since idx is the index in the messages array
+            if (newMessages[idx].role === 'user') {
+                if (idx + 1 < newMessages.length && newMessages[idx + 1].role === 'assistant') {
+                    newMessages.splice(idx, 2);
+                } else {
+                    newMessages.splice(idx, 1);
+                }
+            }
+            return newMessages;
+        });
     };
 
     /* ── STYLING LOGIC ── */
@@ -204,9 +240,16 @@ export default function ChatInterface() {
                                 const element = document.getElementById(`message-${item.idx}`);
                                 element?.scrollIntoView({ behavior: 'smooth', block: 'start' });
                             }}
-                            className={`flex items-center gap-2 px-3 py-2.5 rounded-xl text-[13px] ${glassStrong} ${textSoft} hover:text-white transition-all cursor-pointer group active:scale-95`}
+                            className={`group flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl text-[13px] ${glassStrong} ${textSoft} hover:text-white transition-all cursor-pointer group active:scale-95`}
                         >
                             <span className="truncate flex-1">{item.msg.content}</span>
+                            <button 
+                                onClick={(e) => handleDeleteHistory(e, item.idx)}
+                                className="opacity-0 group-hover:opacity-100 hover:text-red-400 transition-all p-1"
+                                title="Remove from history & context"
+                            >
+                                <X size={14} />
+                            </button>
                         </div>
                     ))}
                 </div>
@@ -313,8 +356,8 @@ export default function ChatInterface() {
         li: ({node, ...props}) => <li {...props} className="pl-1" />
     }}
 >
-    {translatedMessages[i] 
-        ? mockHindiTranslate(m.role === 'assistant' ? stripSources(m.content) : m.content)
+    {showTranslation[i] && translatedCache[i]
+        ? translatedCache[i]
         : (m.role === 'assistant' ? stripSources(m.content) : m.content)}
 </ReactMarkdown>
                                         </div>
@@ -337,8 +380,8 @@ export default function ChatInterface() {
 
                                     {/* Action Buttons */}
                                     <div className={`flex gap-3 mt-2 ${m.role === 'user' ? 'mr-2' : 'ml-2'}`}>
-                                        <button onClick={() => toggleTranslation(i)} title="Translate to Hindi"
-                                            className={`${translatedMessages[i] ? 'text-blue-500' : textMuted} hover:text-white transition-colors font-bold text-xs`}>
+                                        <button onClick={() => toggleTranslation(i, m.content)} title="Translate to Hindi"
+                                            className={`${showTranslation[i] ? 'text-blue-500' : textMuted} hover:text-white transition-colors font-bold text-xs`}>
                                             अ
                                         </button>
                                         <button onClick={() => handleCopy(m.content, i)} title="Copy message"

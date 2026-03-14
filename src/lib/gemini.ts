@@ -9,9 +9,9 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
  * or directly in this array if you prefer.
  */
 const apiKeys = (
-  process.env.GOOGLE_GENERATIVE_AI_API_KEYS || 
-  process.env.GOOGLE_GENERATIVE_AI_API_KEY || 
-  "" // FALLBACK: ["KEY_1", "KEY_2", "KEY_3"]
+    process.env.GOOGLE_GENERATIVE_AI_API_KEYS ||
+    process.env.GOOGLE_GENERATIVE_AI_API_KEY ||
+    "" // FALLBACK: ["KEY_1", "KEY_2", "KEY_3"]
 ).split(',').map(k => k.trim()).filter(Boolean);
 
 // Fallback for easy filling if .env is not used
@@ -48,17 +48,18 @@ export async function withGeminiRetry<T>(fn: (genAI: GoogleGenerativeAI) => Prom
     for (let i = 0; i < maxRetries; i++) {
         try {
             return await fn(getGenAI());
-        } catch (error: any) {
+        } catch (error: unknown) {
             lastError = error;
-            const errorMsg = error?.message?.toLowerCase() || "";
+            const err = error as { message?: string; status?: number };
+            const errorMsg = err?.message?.toLowerCase() || "";
             // The user noted Gemini returns a 500 error when API quota is exhausted
-            const isRateLimit = errorMsg.includes('429') || 
-                                errorMsg.includes('quota') || 
-                                error?.status === 429 ||
-                                error?.status === 500;
-            
+            const isRateLimit = errorMsg.includes('429') ||
+                errorMsg.includes('quota') ||
+                err?.status === 429 ||
+                err?.status === 500;
+
             if (isRateLimit) {
-                console.warn(`[RETRY] ⚠️ Quota/Rate limit hit (Status: ${error?.status || 'Unknown'}). Attempting rotation... (${i + 1}/${maxRetries})`);
+                console.warn(`[RETRY] ⚠️ Quota/Rate limit hit (Status: ${err?.status || 'Unknown'}). Attempting rotation... (${i + 1}/${maxRetries})`);
                 if (!rotateApiKey()) {
                     // If we can't rotate (only 1 key), wait a bit before retrying
                     const waitTime = (i + 1) * 2000;
@@ -78,7 +79,3 @@ export const getEmbeddingModel = () => getGenAI().getGenerativeModel({ model: "g
 
 // Use gemini-2.5-flash for faster chat responses
 export const getChatModel = () => getGenAI().getGenerativeModel({ model: "gemini-2.5-flash" });
-
-// Default instances (note: these won't change after rotation, so use getters above for best results)
-export const embeddingModel = getEmbeddingModel();
-export const chatModel = getChatModel();
